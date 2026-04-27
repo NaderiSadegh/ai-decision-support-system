@@ -1,0 +1,4 @@
+{"content": "Compare current metrics with a previous clean baseline, inspect recent deploys, check queue depth, and correlate logs with dependency errors.", "runbook_id": "RB-001", "service_scope": "all", "title": "Investigate latency and error spikes"}
+{"content": "Disable the cache TTL feature flag, warm critical caches, watch miss ratio, and verify checkout p95 latency recovers for two consecutive windows.", "runbook_id": "RB-002", "service_scope": "checkout-api", "title": "Checkout cache rollback procedure"}
+{"content": "Enable circuit breaker, cap retry concurrency, preserve idempotency keys, and drain delayed jobs gradually.", "runbook_id": "RB-003", "service_scope": "billing-worker", "title": "Billing retry storm containment"}
+{"content": "Throttle index rebuild tasks, move rebuilds away from live query nodes, and watch CPU saturation and p95 latency.", "runbook_id": "RB-004", "service_scope": "search-api", "title": "Search index rebuild isolation"}

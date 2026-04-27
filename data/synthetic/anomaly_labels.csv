@@ -1,0 +1,4 @@
+anomaly_id,service,region,start,end,label,root_cause,severity
+ANOM-001,checkout-api,eu-central-1,2026-04-04T09:00:00,2026-04-04T16:00:00,cache_misconfiguration_after_deploy,"A deployment changed cache TTL behavior, increasing cache misses and downstream queue pressure.",high
+ANOM-002,billing-worker,us-east-1,2026-04-05T01:00:00,2026-04-05T08:00:00,payment_provider_timeout,An external payment provider timeout caused retry storms and queue growth.,medium
+ANOM-003,search-api,us-west-2,2026-04-06T12:00:00,2026-04-06T19:00:00,index_rebuild_resource_contention,A scheduled index rebuild competed with live search traffic for CPU.,medium

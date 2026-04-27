@@ -1,0 +1,8 @@
+timestamp,service,region,event_type,severity,actor,description
+2026-04-04T08:35:00,checkout-api,eu-central-1,deployment,info,release-bot,Deployed checkout-api v2.14.0 with cache TTL normalization and cart pricing changes.
+2026-04-04T09:20:00,checkout-api,eu-central-1,alert,high,monitoring,Checkout p95 latency and error budget burn exceeded the critical threshold.
+2026-04-04T16:10:00,checkout-api,eu-central-1,rollback,info,release-bot,Rolled back cache TTL normalization flag after elevated cache misses.
+2026-04-05T01:10:00,billing-worker,us-east-1,external_dependency,medium,status-sync,Payment provider reported intermittent timeout responses.
+2026-04-05T02:00:00,billing-worker,us-east-1,alert,medium,monitoring,Billing retry queue crossed 5x its normal overnight depth.
+2026-04-06T12:00:00,search-api,us-west-2,maintenance,info,scheduler,Started product index rebuild on shared search nodes.
+2026-04-06T13:05:00,search-api,us-west-2,alert,medium,monitoring,Search CPU saturation and p95 latency exceeded warning thresholds.

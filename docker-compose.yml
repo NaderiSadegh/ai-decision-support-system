@@ -1,0 +1,9 @@
+services:
+  ai-operations-analyst:
+    build: .
+    environment:
+      LLM_PROVIDER: mock
+      OPS_ANALYST_DATA_DIR: /app/data/synthetic
+    ports:
+      - "8000:8000"
+
