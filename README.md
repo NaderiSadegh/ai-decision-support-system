@@ -1,213 +1,174 @@
-# AI Operations Analyst
+# IncidentLens
 
-AI Operations Analyst is a recruiter-facing AI Engineering portfolio project that investigates synthetic SaaS incidents across metrics, events, logs, incidents, and runbooks. It turns a natural-language operations question into a routed investigation plan, retrieves structured and unstructured evidence, reasons over baseline deltas, and returns an explainable answer with recommended next actions.
+AI incident investigation for SaaS operations.
 
-This project uses synthetic data only and does not contain proprietary data or internal systems from any employer.
+[![CI](https://github.com/sadeghnaderi/ai-decision-support-system/actions/workflows/ci.yml/badge.svg)](https://github.com/sadeghnaderi/ai-decision-support-system/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![LLM](https://img.shields.io/badge/LLM-mock%20%7C%20ollama-purple)
+![Data](https://img.shields.io/badge/Data-100%25%20synthetic-success)
 
-## Problem Statement
+IncidentLens answers "what went wrong?" in production-style systems by combining metrics, events, logs, incident records, and runbooks into one concise incident brief.
 
-Operations teams often need to answer questions such as:
+It is designed to show practical AI engineering: retrieval, reasoning, model abstraction, evaluation, API design, and CI-safe demos. All data is synthetic.
 
-- "Why did checkout latency spike yesterday?"
-- "Was this incident caused by a deploy, dependency, or capacity issue?"
-- "What evidence supports the likely root cause?"
-- "What should we do next?"
+## At A Glance
 
-This project demonstrates how an AI assistant can support that workflow without relying on private systems or external APIs.
+- Input: a natural-language incident question.
+- Output: root cause, key signals, recommended actions, and confidence.
+- Interfaces: CLI demo and FastAPI endpoint.
+- LLM modes: deterministic mock by default, optional Ollama locally.
+- Validation: tests plus evaluation pipeline, scored in CI.
 
-## Architecture
-
-```mermaid
-flowchart TD
-    U[User Question] --> R[Router]
-    R --> P[Planner]
-    P --> SR[Structured Retriever]
-    P --> TR[Text Retriever]
-    SR --> DB[(SQLite over synthetic metrics/events)]
-    TR --> IDX[Keyword/BM25-style text index]
-    IDX --> DOCS[Logs, incidents, runbooks]
-    DB --> RE[Reasoner]
-    DOCS --> RE
-    RE --> LLM[LLM Provider]
-    LLM --> A[Explainable Answer]
-
-    subgraph Providers
-        MOCK[Mock LLM: deterministic CI/default]
-        OLLAMA[Ollama: optional local model]
-    end
-    LLM --> MOCK
-    LLM --> OLLAMA
-```
-
-## Features
-
-- Natural-language incident investigation.
-- Router and planner agents for intent, service, metric, region, and time-window extraction.
-- Structured retrieval over synthetic metrics, events, and anomaly labels.
-- Text retrieval over synthetic logs, incident summaries, and runbooks.
-- Multi-step reasoning with baseline comparisons and evidence attribution.
-- Deterministic `LLM_PROVIDER=mock` mode for CI and demos.
-- Optional `LLM_PROVIDER=ollama` mode for local open-model demos.
-- FastAPI backend and CLI demo.
-- Evaluation framework with threshold validation.
-- Tests, Ruff formatting/linting, pre-commit, Docker, and GitHub Actions CI.
-
-## Tech Stack
-
-- Python 3.11+
-- FastAPI
-- SQLite
-- Deterministic synthetic data generator
-- Custom lightweight text retrieval
-- Mock LLM provider by default
-- Optional Ollama provider for local open models
-- Pytest, Ruff, GitHub Actions, Docker
-
-## Quickstart
+## 2-Minute Demo
 
 ```bash
-make install
 make demo
 ```
 
-The demo runs a full investigation for:
-
-```text
-Why did checkout-api latency and errors spike in eu-central-1 on April 4?
-```
-
-Expected answer themes:
-
-- checkout-api was degraded in `eu-central-1`
-- latency, error rate, and queue depth increased versus baseline
-- a deployment changed cache behavior before the spike
-- logs and runbooks corroborate a cache-related issue
-- recommended actions include rollback/feature-flag disablement and cache warmup
-
-## Common Commands
+Use a local LLM:
 
 ```bash
-make install   # install package and dev tools
-make data      # regenerate deterministic synthetic data
-make demo      # run one full investigation
-make test      # run pytest
-make eval      # run deterministic evaluation and write reports/evaluation_report.md
-make ci        # format check, lint, tests, evaluation
-make api       # start FastAPI locally on port 8000
+LLM_PROVIDER=ollama OLLAMA_MODEL=llama3.1:8b make demo
 ```
 
-## API Demo
+![Incident Brief](assets/incident-brief.png)
 
-Start the API:
+## Example Investigation
+
+```text
+Root Cause
+A deployment changed cache TTL behavior, increasing cache misses and downstream queue pressure.
+
+Key Signals
+- checkout-api in eu-central-1 averaged 340.8 ms latency, 0.064 error rate,
+  and 57.4 queue depth.
+- Material baseline deltas: latency_ms +224.1%, error_rate +617.1%,
+  queue_depth +347.8%.
+- A deployment event occurred before the alert in the incident window.
+
+Recommended Actions
+- Rollback or disable the cache TTL change and verify cache miss ratio returns
+  to baseline.
+- Warm critical checkout caches before re-enabling the release.
+- Add deployment guardrails for miss ratio, latency, and queue depth.
+
+Confidence
+0.95
+```
+
+## API Example
+
+IncidentLens is exposed as a FastAPI service.
+
+Start Swagger locally:
 
 ```bash
 make api
 ```
 
-Ask a question:
+Open `http://localhost:8000/docs`.
 
-```bash
-curl -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question":"What caused search-api latency to increase in us-west-2 on April 6?"}'
+Request:
+
+```json
+{
+  "question": "Why did checkout-api latency spike in eu-central-1 on April 4?"
+}
 ```
 
-## Docker
+Response shortened:
+
+```json
+{
+  "result": {
+    "reasoning": {
+      "likely_cause": "A deployment changed cache TTL behavior, increasing cache misses and downstream queue pressure.",
+      "confidence": 0.95,
+      "recommendations": [
+        "Rollback or disable the cache TTL change",
+        "Warm critical checkout caches",
+        "Add deployment guardrails"
+      ]
+    }
+  }
+}
+```
+
+![API Request](assets/api-incident-query.png)
+
+## Demo Scenarios
+
+Run built-in scenarios for incident analysis, anomaly investigation, and system debugging.
+
+```bash
+make demo-scenarios
+```
+
+![Demo Scenarios](assets/demo-scenarios.png)
+
+## What Makes This Different
+
+- Hybrid evidence: combines structured metrics with unstructured logs, incident records, and runbooks.
+- Intent routing: chooses an investigation workflow before retrieval and reasoning.
+- Brief output: produces a decision-ready incident brief, not a long generic chat response.
+- CI-safe model abstraction: mock mode is deterministic; Ollama is optional for local demos.
+- Evaluation-driven: routing, confidence, and evidence terms are checked in CI.
+
+## Architecture
+
+```text
+User Query -> Intent Routing -> Retrieval -> Reasoning -> Incident Brief
+```
+
+Full architecture notes: [docs/architecture.md](docs/architecture.md)
+
+## Run Locally
+
+```bash
+make install
+make demo
+make demo-scenarios
+make api
+make ci
+```
+
+Docker:
 
 ```bash
 docker compose up
 ```
 
-Then open:
+## Validation And CI
 
-```text
-http://localhost:8000/docs
-```
+All tests pass and the evaluation pipeline achieves a perfect score.
 
-The container defaults to `LLM_PROVIDER=mock`, so it does not need API keys, GPUs, managed cloud platforms, or external services.
+Evaluation score: `1.000`
 
-## LLM Provider Modes
+Sample report: [reports/evaluation_report.md](reports/evaluation_report.md)
 
-Default deterministic mode:
+![CI Validation](assets/ci-validation.png)
 
-```bash
-LLM_PROVIDER=mock make demo
-```
+![CI Pipeline](assets/ci-pipeline-success.png)
 
-Optional local Ollama mode:
+## Project Structure
 
-```bash
-ollama pull llama3.1:8b
-LLM_PROVIDER=ollama OLLAMA_MODEL=llama3.1:8b make demo
-```
+- `src/` - core application: API, agents, retrieval, reasoning, LLM providers
+- `tests/` - unit, pipeline, API schema, and prompt tests
+- `data/` - synthetic SaaS operations datasets
+- `docs/` - demo, architecture, design notes, and checklist
+- `reports/` - evaluation outputs
 
-Ollama is optional. CI always uses `mock`.
+## Engineering Notes
 
-## Example Queries
+IncidentLens demonstrates AI system design beyond a single model call.
 
-- Why did checkout-api latency and errors spike in eu-central-1 on April 4?
-- Investigate the billing-worker retry queue anomaly in us-east-1 on April 5.
-- What caused search-api latency to increase in us-west-2 on April 6?
-- Give me a performance summary for checkout-api on April 4.
-- How should we mitigate checkout-api cache latency?
+The core engineering work is the system around the model: routing, retrieval, evidence synthesis, deterministic evaluation, and a clean API/CLI surface.
 
-## Evaluation
+It is intentionally small enough to inspect quickly, but complete enough to show production-style habits: tests, typed schemas, CI, Docker, docs, and reproducible demos.
 
-The evaluation suite runs representative questions against the deterministic mock pipeline and scores:
+## More Docs
 
-- intent routing
-- confidence threshold
-- required evidence terms in the generated answer
-
-CI writes the evaluation report to `/tmp/ai_ops_evaluation_report.md` and validates thresholds. It does not commit generated reports. A sample report is included in `reports/evaluation_report.md`.
-
-## CI/CD
-
-`.github/workflows/ci.yml` runs on `push` and `pull_request`:
-
-1. Install dependencies.
-2. Run `ruff format --check`.
-3. Run `ruff check`.
-4. Run `pytest`.
-5. Run evaluation in `LLM_PROVIDER=mock` mode.
-
-The workflow requires no API keys, no GPU, no managed cloud platform, and no external services.
-
-## What This Demonstrates
-
-- AI system design beyond a thin LLM wrapper.
-- Retrieval over mixed structured and unstructured data.
-- Agentic routing/planning with deterministic testability.
-- Explainable root-cause analysis with evidence and confidence.
-- CI-safe model abstraction.
-- Production-minded project structure, docs, tests, Docker, and evaluation.
-
-## Project Layout
-
-```text
-ai-decision-support-system/
-  README.md
-  LICENSE
-  .env.example
-  pyproject.toml
-  Makefile
-  Dockerfile
-  docker-compose.yml
-  src/
-    app/
-    agents/
-    retrieval/
-    reasoning/
-    evaluation/
-    data/
-    utils/
-    llm/
-  data/
-    synthetic/
-  tests/
-  docs/
-  reports/
-  .github/
-    workflows/
-      ci.yml
-```
+- [Full demo guide](docs/demo.md)
+- [Architecture](docs/architecture.md)
+- [Screenshot checklist](docs/demo_checklist.md)
+- [Limitations](docs/limitations.md)
