@@ -2,7 +2,7 @@
 
 AI incident investigation for SaaS operations.
 
-[![CI](https://github.com/sadeghnaderi/ai-decision-support-system/actions/workflows/ci.yml/badge.svg)](https://github.com/sadeghnaderi/ai-decision-support-system/actions/workflows/ci.yml)
+[![CI](https://github.com/NaderiSadegh/ai-decision-support-system/actions/workflows/ci.yml/badge.svg)](https://github.com/NaderiSadegh/ai-decision-support-system/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
 ![LLM](https://img.shields.io/badge/LLM-mock%20%7C%20ollama-purple)
 ![Data](https://img.shields.io/badge/Data-100%25%20synthetic-success)
@@ -116,8 +116,33 @@ make demo-scenarios
 
 ## Architecture
 
-```text
-User Query -> Intent Routing -> Retrieval -> Reasoning -> Incident Brief
+```mermaid
+flowchart LR
+    Q["Natural-language question"] --> A["IncidentLens"]
+    A --> R["Route intent"]
+    R --> P["Build investigation plan"]
+    P --> E{"Collect evidence"}
+    E --> M["Metrics + events"]
+    E --> L["Logs + runbooks"]
+    M --> S["Reason over signals"]
+    L --> S
+    S --> O["Incident brief<br/>Root cause | Signals | Actions | Confidence"]
+
+    Mock["Mock provider<br/>CI-safe"] -.-> S
+    Ollama["Ollama provider<br/>local demo"] -.-> S
+    Eval["Evaluation + tests"] -. validates .-> O
+
+    classDef entry fill:#e8f3ff,stroke:#2563eb,color:#0f172a;
+    classDef core fill:#eefdf3,stroke:#16a34a,color:#0f172a;
+    classDef evidence fill:#fff7ed,stroke:#ea580c,color:#0f172a;
+    classDef output fill:#f5f3ff,stroke:#7c3aed,color:#0f172a;
+    classDef support fill:#f8fafc,stroke:#64748b,color:#334155;
+
+    class Q,A entry;
+    class R,P,S core;
+    class E,M,L evidence;
+    class O output;
+    class Mock,Ollama,Eval support;
 ```
 
 Full architecture notes: [docs/architecture.md](docs/architecture.md)
