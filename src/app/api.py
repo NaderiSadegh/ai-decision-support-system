@@ -125,9 +125,9 @@ def create_app() -> FastAPI:
     pipeline = OperationsAnalystPipeline(settings)
 
     app = FastAPI(
-        title="AI Operations Analyst",
+        title="IncidentLens",
         version="0.1.0",
-        description="Synthetic SaaS operations analyst with deterministic mock LLM support.",
+        description="AI incident investigation for synthetic SaaS operations.",
     )
 
     @app.get("/health")

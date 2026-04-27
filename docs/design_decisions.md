@@ -6,7 +6,7 @@ The project uses synthetic SaaS/cloud operations rather than any employer-specif
 
 ## Deterministic Default LLM
 
-`LLM_PROVIDER=mock` is the default. It makes the assistant runnable in CI and on any recruiter machine without keys, GPUs, or network services. The mock provider does not pretend to be intelligent; the system's retrieval and reasoning layers produce the grounded answer.
+`LLM_PROVIDER=mock` is the default. It makes the assistant runnable in CI and local environments without keys, GPUs, or network services. The mock provider does not pretend to be intelligent; the system's retrieval and reasoning layers produce the grounded answer.
 
 ## Optional Ollama Integration
 
@@ -23,4 +23,3 @@ The evaluation suite checks routing, confidence, and answer evidence terms. It i
 ## Product-Like Surface
 
 The CLI shows intermediate steps for explainability. The FastAPI backend exposes a clean `/ask` endpoint for integration. Docker and Compose make it easy to run the system as a service.
-

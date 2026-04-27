@@ -26,8 +26,9 @@ class RootCauseReasoner:
         answer_seed = self._answer_seed(
             plan, route, primary, comparisons, likely_cause, confidence, evidence, recommendations
         )
-        prompt = f"Rewrite the following into a concise operations analyst answer.\n\nFINAL_ANSWER:\n{answer_seed}"
+        prompt = self._build_prompt(answer_seed)
         final_text = self.llm.generate(prompt).text
+        final_text = self._ensure_exact_format(final_text, fallback=answer_seed)
         intermediate_steps = [
             f"Route: {route.intent} ({route.rationale})",
             (
@@ -49,6 +50,53 @@ class RootCauseReasoner:
             recommendations=recommendations,
             intermediate_steps=intermediate_steps,
         )
+
+    def _build_prompt(self, answer_seed: str) -> str:
+        if getattr(self.llm, "provider_name", "") != "ollama":
+            return (
+                "Rewrite the following into a concise operations analyst incident brief. "
+                "Keep these exact headings: Root Cause, Key Signals, Recommended Actions, Confidence.\n\n"
+                f"FINAL_ANSWER:\n{answer_seed}"
+            )
+
+        return (
+            "You are formatting an IncidentLens incident brief.\n\n"
+            "Return plain text only. Do not use Markdown emphasis, star characters, numbered lists, "
+            "code blocks, Markdown heading markers, or nested bullets. Use only simple hyphen bullets "
+            "for Key Signals and Recommended Actions.\n\n"
+            "Return exactly this format, replacing placeholders with content from the source brief:\n\n"
+            "Root Cause\n"
+            "<one concise sentence>\n\n"
+            "Key Signals\n"
+            "- <signal 1>\n"
+            "- <signal 2>\n"
+            "- <signal 3>\n\n"
+            "Recommended Actions\n"
+            "- <action 1>\n"
+            "- <action 2>\n"
+            "- <action 3>\n\n"
+            "Confidence\n"
+            "<0.00-1.00>\n\n"
+            "Rules:\n"
+            "- Root Cause must be one concise sentence.\n"
+            "- Include exactly three Key Signals.\n"
+            "- Include exactly three Recommended Actions.\n"
+            "- Confidence must be a decimal from 0.00 to 1.00.\n"
+            "- Do not add any other text.\n\n"
+            f"Source brief:\n{answer_seed}"
+        )
+
+    def _ensure_exact_format(self, text: str, fallback: str) -> str:
+        cleaned = text.replace("**", "").replace("*", "").strip()
+        sections = _parse_sections(cleaned)
+        if set(sections) >= {"Root Cause", "Key Signals", "Recommended Actions", "Confidence"}:
+            root_cause = _first_sentence(sections["Root Cause"]) or _section_text(fallback, "Root Cause")
+            signals = _section_bullets(sections["Key Signals"])[:3]
+            actions = _section_bullets(sections["Recommended Actions"])[:3]
+            confidence = _section_text(cleaned, "Confidence").splitlines()[0].strip()
+            if len(signals) == 3 and len(actions) == 3 and _looks_like_confidence(confidence):
+                return _format_incident_brief(root_cause, signals, actions, confidence)
+        return fallback
 
     def _infer_cause(self, structured: StructuredEvidence, text_evidence: list[TextEvidence]) -> str:
         event_types = {event.event_type for event in structured.related_events}
@@ -157,11 +205,11 @@ class RootCauseReasoner:
     ) -> str:
         service = plan.service or getattr(primary, "service", "the selected services")
         region = plan.region or getattr(primary, "region", "all regions")
-        headline = f"The most likely cause for {service} in {region} is: {likely_cause} Confidence: {confidence:.2f}."
+        summary_lines = []
         if primary:
-            headline += (
-                f" During the window, average latency was {primary.avg_latency_ms:.1f} ms, "
-                f"error rate was {primary.avg_error_rate:.3f}, and queue depth averaged {primary.avg_queue_depth:.1f}."
+            summary_lines.append(
+                f"{service} in {region} averaged {primary.avg_latency_ms:.1f} ms latency, "
+                f"{primary.avg_error_rate:.3f} error rate, and {primary.avg_queue_depth:.1f} queue depth."
             )
         if comparisons:
             deltas = ", ".join(
@@ -170,15 +218,13 @@ class RootCauseReasoner:
                 if abs(comparison.delta_pct) >= 25
             )
             if deltas:
-                headline += f" Material baseline deltas: {deltas}."
-        evidence_block = "\n".join(f"- {item}" for item in evidence)
-        recommendation_block = "\n".join(f"- {item}" for item in recommendations)
-        return (
-            f"{headline}\n\n"
-            f"Intent: {route.intent}.\n\n"
-            f"Evidence:\n{evidence_block}\n\n"
-            f"Recommended next actions:\n{recommendation_block}"
-        )
+                summary_lines.append(f"Material baseline deltas: {deltas}.")
+        event_signals = [item for item in evidence if " event for " in item]
+        other_signals = [item for item in evidence if item not in event_signals]
+        ordered_signals = [*summary_lines, *event_signals, *other_signals]
+        signals = _pad_to_three(ordered_signals, "No additional signal was retrieved.")
+        actions = _pad_to_three(recommendations, "Continue monitoring until metrics return to baseline.")
+        return _format_incident_brief(likely_cause, signals[:3], actions[:3], f"{confidence:.2f}")
 
 
 def _delta(structured: StructuredEvidence, metric: str) -> float:
@@ -186,3 +232,69 @@ def _delta(structured: StructuredEvidence, metric: str) -> float:
         if comparison.metric == metric:
             return comparison.delta_pct
     return 0.0
+
+
+def _format_incident_brief(root_cause: str, signals: list[str], actions: list[str], confidence: str) -> str:
+    signal_block = "\n".join(f"- {signal.strip()}" for signal in signals[:3])
+    action_block = "\n".join(f"- {action.strip()}" for action in actions[:3])
+    return (
+        f"Root Cause\n{root_cause.strip()}\n\n"
+        f"Key Signals\n{signal_block}\n\n"
+        f"Recommended Actions\n{action_block}\n\n"
+        f"Confidence\n{confidence.strip()}"
+    )
+
+
+def _pad_to_three(items: list[str], filler: str) -> list[str]:
+    cleaned = [item.strip() for item in items if item and item.strip()]
+    while len(cleaned) < 3:
+        cleaned.append(filler)
+    return cleaned[:3]
+
+
+def _parse_sections(text: str) -> dict[str, str]:
+    headings = ["Root Cause", "Key Signals", "Recommended Actions", "Confidence"]
+    lines = text.splitlines()
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw_line in lines:
+        line = raw_line.strip().strip("#").strip()
+        if line in headings:
+            current = line
+            sections[current] = []
+            continue
+        if current:
+            sections[current].append(raw_line)
+    return {heading: "\n".join(content).strip() for heading, content in sections.items()}
+
+
+def _section_bullets(text: str) -> list[str]:
+    bullets = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("- "):
+            bullets.append(line[2:].strip())
+        elif line:
+            bullets.append(line.lstrip("- ").strip())
+    return bullets
+
+
+def _section_text(text: str, heading: str) -> str:
+    return _parse_sections(text).get(heading, "").strip()
+
+
+def _first_sentence(text: str) -> str:
+    line = " ".join(part.strip().lstrip("- ").strip() for part in text.splitlines() if part.strip())
+    if not line:
+        return ""
+    if "." in line:
+        return line.split(".", 1)[0].strip() + "."
+    return line.strip()
+
+
+def _looks_like_confidence(value: str) -> bool:
+    try:
+        parsed = float(value)
+    except ValueError:
+        return False
+    return 0.0 <= parsed <= 1.0

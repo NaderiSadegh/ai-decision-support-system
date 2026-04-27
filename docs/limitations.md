@@ -6,7 +6,7 @@
 - Ollama quality depends on the local model selected by the user.
 - The planner uses pragmatic pattern matching for dates, services, regions, and metrics.
 - The evaluation suite is behavior-focused and small; a real production system would need larger datasets, adversarial questions, retrieval quality metrics, and human review.
-- The API has no authentication because this is a local portfolio demo.
+- The API has no authentication because this is designed for local demonstration.
 
 ## Future Work
 
@@ -15,4 +15,3 @@
 - Add richer temporal reasoning and anomaly detection.
 - Add tracing output in OpenTelemetry format.
 - Add more eval cases and retrieval-specific metrics.
-
